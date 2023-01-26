@@ -1,4 +1,3 @@
-
 import { BarStack } from "@visx/shape";
 import { SeriesPoint } from "@visx/shape/lib/types";
 import { Group } from "@visx/group";
@@ -12,6 +11,7 @@ import { timeParse, timeFormat } from "d3-time-format";
 import { useTooltip, useTooltipInPortal, defaultStyles } from "@visx/tooltip";
 import { LegendOrdinal } from "@visx/legend";
 import { localPoint } from "@visx/event";
+import {  useTemperatures } from "../../hooks/TemperatureData";
 
 type CityName = "New York" | "San Francisco" | "Austin";
 
@@ -29,6 +29,7 @@ type TooltipData = {
 export type BarStackProps = {
   width: number;
   height: number;
+  daysNumber: number;
   margin?: { top: number; right: number; bottom: number; left: number };
   events?: boolean;
 };
@@ -45,48 +46,52 @@ const tooltipStyles = {
   color: "white",
 };
 
-const data = cityTemperature.slice(0, 20);
-console.log(data);
-const keys = Object.keys(data[0]).filter((d) => d !== "date") as CityName[];
-
-const temperatureTotals = data.reduce((allTotals, currentDate) => {
-  const totalTemperature = keys.reduce((dailyTotal, k) => {
-    dailyTotal += Number(currentDate[k]);
-    return dailyTotal;
-  }, 0);
-  allTotals.push(totalTemperature);
-  return allTotals;
-}, [] as number[]);
-
 const parseDate = timeParse("%Y-%m-%d");
 const format = timeFormat("%b %d");
-const formatDate = (date: string) => format(parseDate(date) as Date);
 
-// accessors
-const getDate = (d: CityTemperature) => d.date;
-
-// scales
-const dateScale = scaleBand<string>({
-  domain: data.map(getDate),
-  padding: 0.2,
-});
-const temperatureScale = scaleLinear<number>({
-  domain: [0, Math.max(...temperatureTotals)],
-  nice: true,
-});
-const colorScale = scaleOrdinal<CityName, string>({
-  domain: keys,
-  range: [purple1, purple2, purple3],
-});
 
 let tooltipTimeout: number;
 
 export default function BarGraph({
   width,
   height,
+  daysNumber,
   events = false,
   margin = defaultMargin,
 }: BarStackProps) {
+  const { temperatures, error, loading } = useTemperatures(daysNumber);
+  const data = temperatures;
+  const keys =
+    data.length > 0
+      ? (Object.keys(data[0]).filter((d) => d !== "date") as CityName[])
+      : [];
+
+  const temperatureTotals = data.reduce((allTotals, currentDate) => {
+    const totalTemperature = keys.reduce((dailyTotal, k) => {
+      dailyTotal += Number(currentDate[k]);
+      return dailyTotal;
+    }, 0);
+    allTotals.push(totalTemperature);
+    return allTotals;
+  }, [] as number[]);
+  const formatDate = (date: string) => format(parseDate(date) as Date);
+
+  // accessors
+  const getDate = (d: CityTemperature) => d.date;
+
+  // scales
+  const dateScale = scaleBand<string>({
+    domain: data.map(getDate),
+    padding: 0.2,
+  });
+  const temperatureScale = scaleLinear<number>({
+    domain: [0, Math.max(...temperatureTotals)],
+    nice: true,
+  });
+  const colorScale = scaleOrdinal<CityName, string>({
+    domain: keys,
+    range: [purple1, purple2, purple3],
+  });
   const {
     tooltipOpen,
     tooltipLeft,
@@ -95,6 +100,8 @@ export default function BarGraph({
     hideTooltip,
     showTooltip,
   } = useTooltip<TooltipData>();
+
+  console.log("aaaaaaaaaaaaaa: ", temperatures);
 
   const { containerRef, TooltipInPortal } = useTooltipInPortal({
     // TooltipInPortal is rendered in a separate child of <body /> and positioned
